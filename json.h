@@ -50,12 +50,12 @@
 #include <stddef.h>
 #include <string.h>
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__WATCOMC__)
 #define json_weak __inline
 #elif defined(__clang__) || defined(__GNUC__)
 #define json_weak __attribute__((weak))
 #else
-#error Non clang, non gcc, non MSVC compiler found!
+#error Non clang, non gcc, non MSVC, non WATCOM compiler found!
 #endif
 
 #ifdef __cplusplus
@@ -219,7 +219,7 @@ json_weak int json_value_is_false(const struct json_value_s *const value);
 json_weak int json_value_is_null(const struct json_value_s *const value);
 
 /* The various types JSON values can be. Used to identify what a value is. */
-enum json_type_e {
+typedef enum json_type_e {
   json_type_string,
   json_type_number,
   json_type_object,
@@ -227,18 +227,20 @@ enum json_type_e {
   json_type_true,
   json_type_false,
   json_type_null
-};
+
+} json_type_t;
 
 /* A JSON string value. */
-struct json_string_s {
+typedef struct json_string_s {
   /* utf-8 string */
   const char *string;
   /* The size (in bytes) of the string */
   size_t string_size;
-};
+
+} json_string_t;
 
 /* A JSON string value (extended). */
-struct json_string_ex_s {
+typedef struct json_string_ex_s {
   /* The JSON string this extends. */
   struct json_string_s string;
 
@@ -250,52 +252,58 @@ struct json_string_ex_s {
 
   /* The row number for the value in the JSON input, in bytes. */
   size_t row_no;
-};
+
+} json_string_ex_t;
 
 /* A JSON number value. */
-struct json_number_s {
+typedef struct json_number_s {
   /* ASCII string containing representation of the number. */
   const char *number;
   /* the size (in bytes) of the number. */
   size_t number_size;
-};
+
+} json_number_t;
 
 /* an element of a JSON object. */
-struct json_object_element_s {
+typedef struct json_object_element_s {
   /* the name of this element. */
   struct json_string_s *name;
   /* the value of this element. */
   struct json_value_s *value;
   /* the next object element (can be NULL if the last element in the object). */
   struct json_object_element_s *next;
-};
+
+} json_object_element_t;
 
 /* a JSON object value. */
-struct json_object_s {
+typedef struct json_object_s {
   /* a linked list of the elements in the object. */
   struct json_object_element_s *start;
   /* the number of elements in the object. */
   size_t length;
-};
+
+} json_object_t;
 
 /* an element of a JSON array. */
-struct json_array_element_s {
+typedef struct json_array_element_s {
   /* the value of this element. */
   struct json_value_s *value;
   /* the next array element (can be NULL if the last element in the array). */
   struct json_array_element_s *next;
-};
+
+} json_array_element_t;
 
 /* a JSON array value. */
-struct json_array_s {
+typedef struct json_array_s {
   /* a linked list of the elements in the array. */
   struct json_array_element_s *start;
   /* the number of elements in the array. */
   size_t length;
-};
+
+} json_array_t;
 
 /* a JSON value. */
-struct json_value_s {
+typedef struct json_value_s {
   /* a pointer to either a json_string_s, json_number_s, json_object_s, or. */
   /* json_array_s. Should be cast to the appropriate struct type based on what.
    */
@@ -305,10 +313,11 @@ struct json_value_s {
    */
   /* json_type_null, payload will be NULL. */
   size_t type;
-};
+
+} json_value_t;
 
 /* a JSON value (extended). */
-struct json_value_ex_s {
+typedef struct json_value_ex_s {
   /* the JSON value this extends. */
   struct json_value_s value;
 
@@ -320,7 +329,8 @@ struct json_value_ex_s {
 
   /* the row number for the value in the JSON input, in bytes. */
   size_t row_no;
-};
+
+} json_value_ex_t;
 
 /* a parsing error code. */
 enum json_parse_error_e {
@@ -364,7 +374,7 @@ enum json_parse_error_e {
 };
 
 /* error report from json_parse_ex(). */
-struct json_parse_result_s {
+typedef struct json_parse_result_s {
   /* the error code (one of json_parse_error_e). */
   size_t error;
 
@@ -376,7 +386,8 @@ struct json_parse_result_s {
 
   /* the row number for the error, in bytes. */
   size_t error_row_no;
-};
+
+} json_parse_result_t;
 
 #ifdef __cplusplus
 } /* extern "C". */
@@ -1186,12 +1197,27 @@ int json_get_number_size(struct json_parse_state_s *state) {
       }
 
       if (inf_or_nan) {
-        const char c = src[offset];
-        if ((offset < size) && ('0' <= c && c <= '9')) {
-          /* cannot follow an inf or nan with digits! */
-          state->error = json_parse_error_invalid_number_format;
-          state->offset = offset;
-          return 1;
+        if (offset < size) {
+          switch (src[offset]) {
+          default:
+            break;
+          case '0':
+          case '1':
+          case '2':
+          case '3':
+          case '4':
+          case '5':
+          case '6':
+          case '7':
+          case '8':
+          case '9':
+          case 'e':
+          case 'E':
+            /* cannot follow an inf or nan with digits! */
+            state->error = json_parse_error_invalid_number_format;
+            state->offset = offset;
+            return 1;
+          }
         }
       }
     }
