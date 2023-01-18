@@ -1,0 +1,6 @@
+project: jsonh
+target: jsonh-fuzz
+
+cmds:
+    - cmd: ./jsonh-fuzz
+      libfuzzer: true
